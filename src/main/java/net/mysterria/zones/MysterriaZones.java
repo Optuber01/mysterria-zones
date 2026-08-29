@@ -8,6 +8,7 @@ import net.mysterria.zones.commands.ZoneBanishCommands;
 import net.mysterria.zones.commands.ZoneCommands;
 import net.mysterria.zones.commands.ZoneConfigCommands;
 import net.mysterria.zones.commands.ZoneUtilityCommands;
+import net.mysterria.zones.audit.ZoneAuditEmitter;
 import net.mysterria.zones.listeners.SecureZoneListener;
 import net.mysterria.zones.manager.ZoneManager;
 import net.mysterria.zones.service.ZoneTrackingService;
@@ -31,6 +32,7 @@ public class MysterriaZones extends JavaPlugin implements Listener {
 
     private ZoneManager zoneManager;
     private ZoneTrackingService zoneTrackingService;
+    private ZoneAuditEmitter auditEmitter;
     private LiteCommands<CommandSender> liteCommands;
 
     @Nullable
@@ -44,6 +46,7 @@ public class MysterriaZones extends JavaPlugin implements Listener {
         instance = this;
         getLogger().info("myzones plugin enabled!");
 
+        auditEmitter = new ZoneAuditEmitter(this);
         zoneManager = new ZoneManager(this);
         zoneTrackingService = new ZoneTrackingService(this);
 

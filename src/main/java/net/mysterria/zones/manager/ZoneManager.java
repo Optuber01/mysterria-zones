@@ -1,6 +1,8 @@
 package net.mysterria.zones.manager;
 
 import net.mysterria.zones.MysterriaZones;
+import dev.ua.ikeepcalm.coi.api.audit.AuditOutcome;
+import net.mysterria.zones.audit.ZoneAuditEmitter;
 import net.mysterria.zones.model.Zone;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -57,6 +59,11 @@ public class ZoneManager {
     }
 
     public void saveZone(Zone zone) {
+        saveZone(zone, null, null, null);
+    }
+
+    /** Persists a zone and emits an optional event only after the write succeeds. */
+    public boolean saveZone(Zone zone, UUID actorId, String operation, Map<String, ?> metadata) {
         File zoneFile = new File(zonesFolder, zone.getName() + ".yml");
         FileConfiguration zoneConfig = new YamlConfiguration();
         Map<String, Object> serialized = zone.serialize();
@@ -66,26 +73,52 @@ public class ZoneManager {
         try {
             zoneConfig.save(zoneFile);
             logger.info("Saved zone: " + zone.getName());
+            if (actorId != null && operation != null) {
+                audit().emit(operation, AuditOutcome.COMMITTED, actorId, null, zone, metadata);
+            }
+            return true;
         } catch (IOException e) {
             logger.severe("Failed to save zone " + zone.getName() + ": " + e.getMessage());
+            return false;
         }
     }
 
     public void createZone(String name, Location point1, Location point2) {
+        createZone(name, point1, point2, null);
+    }
+
+    public boolean createZone(String name, Location point1, Location point2, UUID actorId) {
         Zone zone = new Zone(name, point1, point2);
+        if (!saveZone(zone, null, null, null)) {
+            return false;
+        }
         zones.put(name, zone);
-        saveZone(zone);
+        if (actorId != null) {
+            audit().emit("zone.created", AuditOutcome.COMMITTED, actorId, null, zone, Map.of());
+        }
+        return true;
     }
 
     public boolean deleteZone(String name) {
-        if (zones.remove(name) != null) {
-            File zoneFile = new File(zonesFolder, name + ".yml");
-            if (zoneFile.exists()) {
-                zoneFile.delete();
-            }
-            return true;
+        return deleteZone(name, null);
+    }
+
+    public boolean deleteZone(String name, UUID actorId) {
+        Zone removed = zones.get(name);
+        if (removed == null) {
+            return false;
         }
-        return false;
+
+        File zoneFile = new File(zonesFolder, name + ".yml");
+        if (zoneFile.exists() && !zoneFile.delete()) {
+            return false;
+        }
+
+        zones.remove(name);
+        if (actorId != null) {
+            audit().emit("zone.deleted", AuditOutcome.COMMITTED, actorId, null, removed, Map.of());
+        }
+        return true;
     }
 
     public Zone getZone(String name) {
@@ -122,18 +155,56 @@ public class ZoneManager {
     }
 
     public void updateZone(Zone zone) {
+        updateZone(zone, null, null, null);
+    }
+
+    public boolean updateZone(Zone zone, UUID actorId, String operation, Map<String, ?> metadata) {
         zones.put(zone.getName(), zone);
-        saveZone(zone);
+        boolean persisted = saveZone(zone, null, null, null);
+        if (persisted && actorId != null && operation != null) {
+            audit().emit(operation, AuditOutcome.COMMITTED, actorId, null, zone, metadata);
+        }
+        return persisted;
     }
 
     public void banishPlayer(Zone zone, UUID playerId) {
+        banishPlayer(zone, playerId, null);
+    }
+
+    public boolean banishPlayer(Zone zone, UUID playerId, UUID actorId) {
+        if (zone.isBanished(playerId)) return false;
         zone.banishPlayer(playerId);
-        saveZone(zone);
+        boolean persisted = saveZone(zone, null, null, null);
+        if (!persisted) {
+            zone.unbanishPlayer(playerId);
+            return false;
+        }
+        if (actorId != null) {
+            audit().emit("zone.banished", AuditOutcome.COMMITTED, actorId, playerId, zone, Map.of());
+        }
+        return true;
     }
 
     public void unbanishPlayer(Zone zone, UUID playerId) {
+        unbanishPlayer(zone, playerId, null);
+    }
+
+    public boolean unbanishPlayer(Zone zone, UUID playerId, UUID actorId) {
+        if (!zone.isBanished(playerId)) return false;
         zone.unbanishPlayer(playerId);
-        saveZone(zone);
+        boolean persisted = saveZone(zone, null, null, null);
+        if (!persisted) {
+            zone.banishPlayer(playerId);
+            return false;
+        }
+        if (actorId != null) {
+            audit().emit("zone.unbanished", AuditOutcome.COMMITTED, actorId, playerId, zone, Map.of());
+        }
+        return true;
+    }
+
+    private ZoneAuditEmitter audit() {
+        return plugin.getAuditEmitter();
     }
 
     public Set<UUID> getBanishedPlayers(Zone zone) {

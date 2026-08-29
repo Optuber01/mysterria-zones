@@ -49,13 +49,16 @@ public class ZoneCommands {
             return;
         }
 
-        plugin.getZoneManager().createZone(zoneName, pos1, pos2);
-        player.sendMessage(Component.text("Zone '" + zoneName + "' created successfully!", NamedTextColor.GREEN));
+        if (plugin.getZoneManager().createZone(zoneName, pos1, pos2, player.getUniqueId())) {
+            player.sendMessage(Component.text("Zone '" + zoneName + "' created successfully!", NamedTextColor.GREEN));
+        } else {
+            player.sendMessage(Component.text("Zone '" + zoneName + "' could not be persisted.", NamedTextColor.RED));
+        }
     }
 
     @Execute(name = "delete")
     public void delete(@Context Player player, @Arg String zoneName) {
-        if (plugin.getZoneManager().deleteZone(zoneName)) {
+        if (plugin.getZoneManager().deleteZone(zoneName, player.getUniqueId())) {
             player.sendMessage(Component.text("Zone '" + zoneName + "' deleted successfully!", NamedTextColor.GREEN));
         } else {
             player.sendMessage(Component.text("Zone '" + zoneName + "' not found!", NamedTextColor.RED));

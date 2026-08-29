@@ -4,8 +4,10 @@ main: net.mysterria.zones.MysterriaZones
 api-version: '1.21'
 prefix: '&8&6Zones&8 &r'
 authors: [ ikeepcalm ]
-softdepend:
+depend:
   - CircleOfImagination
+softdepend:
+  - MysterriaLogging
 
 permissions:
   myzones.zone:
