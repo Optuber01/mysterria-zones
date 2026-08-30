@@ -159,12 +159,16 @@ public class ZoneManager {
     }
 
     public boolean updateZone(Zone zone, UUID actorId, String operation, Map<String, ?> metadata) {
-        zones.put(zone.getName(), zone);
         boolean persisted = saveZone(zone, null, null, null);
-        if (persisted && actorId != null && operation != null) {
+        if (!persisted) {
+            return false;
+        }
+
+        zones.put(zone.getName(), zone);
+        if (actorId != null && operation != null) {
             audit().emit(operation, AuditOutcome.COMMITTED, actorId, null, zone, metadata);
         }
-        return persisted;
+        return true;
     }
 
     public void banishPlayer(Zone zone, UUID playerId) {

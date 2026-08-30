@@ -10,9 +10,11 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
 /** Best-effort bridge to the optional shared Mysterria audit ledger. */
@@ -20,6 +22,7 @@ public final class ZoneAuditEmitter {
     private static final int MAX_TEXT = 256;
 
     private final JavaPlugin plugin;
+    private final AtomicBoolean failureReported = new AtomicBoolean();
 
     public ZoneAuditEmitter(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -57,9 +60,11 @@ public final class ZoneAuditEmitter {
                     targetId,
                     null,
                     bounded));
+            failureReported.set(false);
         } catch (RuntimeException | LinkageError failure) {
             // The audit provider is optional and must never gate gameplay or persistence.
-            plugin.getLogger().log(Level.FINE, "Mysterria audit emission was unavailable", failure);
+            Level level = failureReported.compareAndSet(false, true) ? Level.WARNING : Level.FINE;
+            plugin.getLogger().log(level, "Mysterria audit emission was unavailable", failure);
         }
     }
 
@@ -78,11 +83,12 @@ public final class ZoneAuditEmitter {
         if (metadata != null) {
             metadata.forEach((key, value) -> {
                 if (key != null && !key.isBlank() && result.size() < 32 && value != null) {
-                    result.put(bounded(key), boundedValue(value));
+                    String boundedKey = bounded(key);
+                    result.putIfAbsent(boundedKey, boundedValue(value));
                 }
             });
         }
-        return Map.copyOf(result);
+        return Collections.unmodifiableMap(new LinkedHashMap<>(result));
     }
 
     private Object boundedValue(Object value) {

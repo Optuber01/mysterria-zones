@@ -112,6 +112,8 @@ The old `/myzones` and `/gr` commands are now aliases that redirect to the new z
 - Remove unused zone: `/zone delete old_zone`
 
 ## Technical Notes
+- The plugin requires Java 25 and CircleOfImagination 1.4.8.
+- MysterriaLogging is optional; zone mutations continue when the audit service is unavailable.
 - Zone tracking runs every second (20 ticks) for smooth detection
 - Players are automatically removed from tracking when they quit
 - Zone data is saved on plugin disable and zone updates
