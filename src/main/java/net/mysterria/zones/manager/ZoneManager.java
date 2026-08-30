@@ -10,6 +10,14 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -71,7 +79,7 @@ public class ZoneManager {
             zoneConfig.set(entry.getKey(), entry.getValue());
         }
         try {
-            zoneConfig.save(zoneFile);
+            saveAtomically(zoneConfig, zoneFile);
             logger.info("Saved zone: " + zone.getName());
             if (actorId != null && operation != null) {
                 audit().emit(operation, AuditOutcome.COMMITTED, actorId, null, zone, metadata);
@@ -80,6 +88,33 @@ public class ZoneManager {
         } catch (IOException e) {
             logger.severe("Failed to save zone " + zone.getName() + ": " + e.getMessage());
             return false;
+        }
+    }
+
+    private void saveAtomically(FileConfiguration zoneConfig, File zoneFile) throws IOException {
+        Path target = zoneFile.toPath();
+        Path parent = target.getParent();
+        Files.createDirectories(parent);
+        Path temporary = Files.createTempFile(parent, zoneFile.getName() + ".", ".tmp");
+
+        try {
+            ByteBuffer contents = StandardCharsets.UTF_8.encode(zoneConfig.saveToString());
+            try (FileChannel channel = FileChannel.open(temporary,
+                    StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                while (contents.hasRemaining()) {
+                    channel.write(contents);
+                }
+                channel.force(true);
+            }
+
+            try {
+                Files.move(temporary, target,
+                        StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException unsupported) {
+                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temporary);
         }
     }
 

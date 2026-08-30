@@ -14,15 +14,17 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 
 /** Best-effort bridge to the optional shared Mysterria audit ledger. */
 public final class ZoneAuditEmitter {
     private static final int MAX_TEXT = 256;
+    private static final long WARNING_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(5);
 
     private final JavaPlugin plugin;
-    private final AtomicBoolean failureReported = new AtomicBoolean();
+    private final AtomicLong lastWarningNanos = new AtomicLong();
 
     public ZoneAuditEmitter(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -60,12 +62,21 @@ public final class ZoneAuditEmitter {
                     targetId,
                     null,
                     bounded));
-            failureReported.set(false);
+            lastWarningNanos.set(0L);
         } catch (RuntimeException | LinkageError failure) {
             // The audit provider is optional and must never gate gameplay or persistence.
-            Level level = failureReported.compareAndSet(false, true) ? Level.WARNING : Level.FINE;
+            Level level = shouldWarn() ? Level.WARNING : Level.FINE;
             plugin.getLogger().log(level, "Mysterria audit emission was unavailable", failure);
         }
+    }
+
+    private boolean shouldWarn() {
+        long now = System.nanoTime();
+        long previous = lastWarningNanos.get();
+        if (previous != 0L && now - previous < WARNING_INTERVAL_NANOS) {
+            return false;
+        }
+        return lastWarningNanos.compareAndSet(previous, now);
     }
 
     private Map<String, Object> boundedMetadata(Zone zone, Map<String, ?> metadata) {
@@ -103,6 +114,7 @@ public final class ZoneAuditEmitter {
 
     private String bounded(String value) {
         if (value == null) return "";
-        return value.length() <= MAX_TEXT ? value : value.substring(0, MAX_TEXT);
+        if (value.codePointCount(0, value.length()) <= MAX_TEXT) return value;
+        return value.substring(0, value.offsetByCodePoints(0, MAX_TEXT));
     }
 }
