@@ -57,7 +57,7 @@ public class ZoneBanishCommands {
     }
 
     @Execute(name = "unbanish")
-    public void unbanish(@Context Player player, @Arg String zoneName, @Arg OfflinePlayer target) {
+    public void unbanish(@Context Player player, @Arg String zoneName, @Arg String targetName) {
         Zone zone = plugin.getZoneManager().getZone(zoneName);
 
         if (zone == null) {
@@ -65,8 +65,10 @@ public class ZoneBanishCommands {
             return;
         }
 
+        OfflinePlayer target = resolveOfflinePlayer(targetName);
+        String displayName = target.getName() != null ? target.getName() : targetName;
         if (!zone.isBanished(target.getUniqueId())) {
-            player.sendMessage(Component.text(target.getName() + " is not banished from zone '" + zoneName + "'!", NamedTextColor.YELLOW));
+            player.sendMessage(Component.text(displayName + " is not banished from zone '" + zoneName + "'!", NamedTextColor.YELLOW));
             return;
         }
 
@@ -74,13 +76,18 @@ public class ZoneBanishCommands {
             player.sendMessage(Component.text("Could not persist unbanishment for zone '" + zoneName + "'.", NamedTextColor.RED));
             return;
         }
-        player.sendMessage(Component.text(target.getName() + " has been unbanished from zone '" + zoneName + "'!", NamedTextColor.GREEN));
+        player.sendMessage(Component.text(displayName + " has been unbanished from zone '" + zoneName + "'!", NamedTextColor.GREEN));
 
         if (target.isOnline()) {
             ((Player) target).sendMessage(Component.text("You have been unbanished from ", NamedTextColor.GREEN)
                     .append(zone.getDisplayNameComponent())
                     .append(Component.text("!", NamedTextColor.GREEN)));
         }
+    }
+
+    private OfflinePlayer resolveOfflinePlayer(String targetName) {
+        Player online = Bukkit.getPlayerExact(targetName);
+        return online != null ? online : Bukkit.getOfflinePlayer(targetName);
     }
 
     @Execute(name = "banlist")

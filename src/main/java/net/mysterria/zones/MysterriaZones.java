@@ -140,7 +140,9 @@ public class MysterriaZones extends JavaPlugin implements Listener {
         double y = section.getDouble("y");
         double z = section.getDouble("z");
         if (worldName == null) throw new IllegalArgumentException("World name is missing or invalid in config.");
-        return new Location(getServer().getWorld(worldName), x, y, z);
+        org.bukkit.World world = getServer().getWorld(worldName);
+        if (world == null) throw new IllegalArgumentException("World is unavailable: " + worldName);
+        return new Location(world, x, y, z);
     }
 
     private void registerLiteCommands() {
