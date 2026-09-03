@@ -1,13 +1,10 @@
 package net.mysterria.zones.audit;
 
-import dev.ua.ikeepcalm.coi.api.audit.AuditEmission;
-import dev.ua.ikeepcalm.coi.api.audit.AuditOutcome;
-import dev.ua.ikeepcalm.coi.api.audit.AuditPrivacy;
-import dev.ua.ikeepcalm.coi.api.audit.AuditRisk;
-import dev.ua.ikeepcalm.coi.api.audit.MysterriaAudit;
+import dev.ua.ikeepcalm.mysterria.audit.client.api.AuditOutcome;
+import dev.ua.ikeepcalm.mysterria.audit.client.api.AuditPrivacy;
+import dev.ua.ikeepcalm.mysterria.audit.client.api.AuditProducer;
+import dev.ua.ikeepcalm.mysterria.audit.client.api.AuditRisk;
 import net.mysterria.zones.model.Zone;
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Collections;
@@ -19,15 +16,18 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 
 /** Best-effort bridge to the optional shared Mysterria audit ledger. */
-public final class ZoneAuditEmitter {
+public final class ZoneAuditEmitter implements AutoCloseable {
     private static final int MAX_TEXT = 256;
     private static final long WARNING_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(5);
 
     private final JavaPlugin plugin;
+    private final AuditProducer producer;
     private final AtomicLong lastWarningNanos = new AtomicLong();
 
     public ZoneAuditEmitter(JavaPlugin plugin) {
         this.plugin = plugin;
+        this.producer = AuditProducer.create(plugin.getDataFolder().toPath().toAbsolutePath().getParent(),
+                "mysterria-zones", plugin.getPluginMeta().getVersion());
     }
 
     /**
@@ -42,26 +42,10 @@ public final class ZoneAuditEmitter {
         }
 
         try {
-            RegisteredServiceProvider<MysterriaAudit> registration =
-                    Bukkit.getServicesManager().getRegistration(MysterriaAudit.class);
-            MysterriaAudit audit = registration == null ? null : registration.getProvider();
-            if (audit == null) {
-                return;
-            }
-
             Map<String, Object> bounded = boundedMetadata(zone, metadata);
-            audit.emit(new AuditEmission(
-                    "mysterria-zones." + operation,
-                    outcome,
-                    AuditRisk.NORMAL,
-                    AuditPrivacy.STAFF_RESTRICTED,
-                    UUID.randomUUID(),
-                    zone.getName(),
-                    actorId,
-                    null,
-                    targetId,
-                    null,
-                    bounded));
+            producer.emit("mysterria-zones." + operation, outcome, AuditRisk.NORMAL,
+                    AuditPrivacy.STAFF_RESTRICTED, UUID.randomUUID(), zone.getName(),
+                    actorId, null, targetId, null, bounded);
             lastWarningNanos.set(0L);
         } catch (RuntimeException | LinkageError failure) {
             // The audit provider is optional and must never gate gameplay or persistence.
@@ -116,5 +100,10 @@ public final class ZoneAuditEmitter {
         if (value == null) return "";
         if (value.codePointCount(0, value.length()) <= MAX_TEXT) return value;
         return value.substring(0, value.offsetByCodePoints(0, MAX_TEXT));
+    }
+
+    @Override
+    public void close() {
+        producer.close();
     }
 }

@@ -1,7 +1,7 @@
 package net.mysterria.zones.manager;
 
 import net.mysterria.zones.MysterriaZones;
-import dev.ua.ikeepcalm.coi.api.audit.AuditOutcome;
+import dev.ua.ikeepcalm.mysterria.audit.client.api.AuditOutcome;
 import net.mysterria.zones.audit.ZoneAuditEmitter;
 import net.mysterria.zones.model.Zone;
 import org.bukkit.Location;

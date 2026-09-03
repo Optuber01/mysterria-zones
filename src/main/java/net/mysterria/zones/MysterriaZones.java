@@ -76,6 +76,9 @@ public class MysterriaZones extends JavaPlugin implements Listener {
         }
 
         saveConfigData();
+        if (auditEmitter != null) {
+            auditEmitter.close();
+        }
     }
 
     public void clearProtectedArea() {

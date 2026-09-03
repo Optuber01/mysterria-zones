@@ -6,9 +6,6 @@ prefix: '&8&6Zones&8 &r'
 authors: [ ikeepcalm ]
 depend:
   - CircleOfImagination
-softdepend:
-  - MysterriaLogging
-
 permissions:
   myzones.zone:
     description: Access to zone commands
