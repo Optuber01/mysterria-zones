@@ -113,7 +113,7 @@ The old `/myzones` and `/gr` commands are now aliases that redirect to the new z
 
 ## Technical Notes
 - The plugin requires Java 25 and CircleOfImagination 1.4.8.
-- MysterriaLogging is optional; zone mutations continue when the audit service is unavailable.
+- The shaded audit client emits asynchronously to this server's spool; an absent or unhealthy audit engine never changes zone mutations.
 - Zone tracking runs every second (20 ticks) for smooth detection
 - Players are automatically removed from tracking when they quit
 - Zone data is saved on plugin disable and zone updates

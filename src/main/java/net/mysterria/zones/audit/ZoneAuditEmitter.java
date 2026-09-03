@@ -48,7 +48,7 @@ public final class ZoneAuditEmitter implements AutoCloseable {
                     actorId, null, targetId, null, bounded);
             lastWarningNanos.set(0L);
         } catch (RuntimeException | LinkageError failure) {
-            // The audit provider is optional and must never gate gameplay or persistence.
+            // Audit delivery is best effort and must never gate gameplay or persistence.
             Level level = shouldWarn() ? Level.WARNING : Level.FINE;
             plugin.getLogger().log(level, "Mysterria audit emission was unavailable", failure);
         }
