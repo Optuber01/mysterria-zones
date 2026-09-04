@@ -26,7 +26,8 @@ public final class ZoneAuditEmitter implements AutoCloseable {
 
     public ZoneAuditEmitter(JavaPlugin plugin) {
         this.plugin = plugin;
-        this.producer = AuditProducer.create(plugin.getDataFolder().toPath().toAbsolutePath().getParent(),
+        this.producer = AuditProducer.create(plugin.getDataFolder().toPath().toAbsolutePath().getParent()
+                        .resolve("mysterria-audit-spool"),
                 "mysterria-zones", plugin.getPluginMeta().getVersion());
     }
 
