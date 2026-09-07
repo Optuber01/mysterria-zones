@@ -19,7 +19,10 @@ repositories {
         url = "https://oss.sonatype.org/content/groups/public/"
     }
 
-    maven { url "https://repo.panda-lang.org/releases" }
+    maven {
+        url "https://repo.panda-lang.org/releases"
+        content { includeGroupAndSubgroups "org.panda-lang"; includeGroup "dev.rollczi" }
+    }
 
     maven {
         url = "https://nexus.mysterria.net/repository/plugin-public/"
@@ -29,7 +32,7 @@ repositories {
 tasks.build.dependsOn tasks.shadowJar
 
 dependencies {
-    implementation "dev.rollczi:litecommands-bukkit:3.10.2"
+    implementation "dev.rollczi:litecommands-bukkit:3.10.9"
     def coiApiJar = project.findProperty('coiApiJar')
     if (coiApiJar) {
         compileOnly files(coiApiJar)

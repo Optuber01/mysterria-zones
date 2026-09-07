@@ -11,21 +11,14 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.logging.Level;
 
 /** Best-effort bridge to the optional shared Mysterria audit ledger. */
 public final class ZoneAuditEmitter implements AutoCloseable {
     private static final int MAX_TEXT = 256;
-    private static final long WARNING_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(5);
 
-    private final JavaPlugin plugin;
     private final AuditProducer producer;
-    private final AtomicLong lastWarningNanos = new AtomicLong();
 
     public ZoneAuditEmitter(JavaPlugin plugin) {
-        this.plugin = plugin;
         this.producer = AuditProducer.create(plugin.getDataFolder().toPath().toAbsolutePath().getParent()
                         .resolve("mysterria-audit-spool"),
                 "mysterria-zones", plugin.getPluginMeta().getVersion());
@@ -47,22 +40,12 @@ public final class ZoneAuditEmitter implements AutoCloseable {
             producer.emit("mysterria-zones." + operation, outcome, AuditRisk.NORMAL,
                     AuditPrivacy.STAFF_RESTRICTED, UUID.randomUUID(), zone.getName(),
                     actorId, null, targetId, null, bounded);
-            lastWarningNanos.set(0L);
         } catch (RuntimeException | LinkageError failure) {
             // Audit delivery is best effort and must never gate gameplay or persistence.
-            Level level = shouldWarn() ? Level.WARNING : Level.FINE;
-            plugin.getLogger().log(level, "Mysterria audit emission was unavailable", failure);
+            producer.recordFailure();
         }
     }
 
-    private boolean shouldWarn() {
-        long now = System.nanoTime();
-        long previous = lastWarningNanos.get();
-        if (previous != 0L && now - previous < WARNING_INTERVAL_NANOS) {
-            return false;
-        }
-        return lastWarningNanos.compareAndSet(previous, now);
-    }
 
     private Map<String, Object> boundedMetadata(Zone zone, Map<String, ?> metadata) {
         Map<String, Object> result = new LinkedHashMap<>();

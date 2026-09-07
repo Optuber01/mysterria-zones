@@ -1,9 +1,8 @@
 # MysterriaZones audit events
 
-MysterriaZones emits best-effort, staff-restricted events through the optional
-COI `MysterriaAudit` service. Events are emitted only after the authoritative
-zone map and YAML file operation succeeds. If the service is not installed or
-emission fails, zone commands and persistence continue unchanged.
+MysterriaZones emits best-effort, staff-restricted events through its shaded neutral audit client after the authoritative zone map and YAML operation succeeds. Audit failures do not change zone commands or persistence.
+
+The optional per-server audit engine owns SQLite and local staff searches. Each producer writes to its own bounded spool directory even when the engine is absent. Existing gameplay dependencies remain separate from audit transport.
 
 ## Event catalog
 
