@@ -44,7 +44,7 @@ public class ZoneManager {
         zones.clear();
         File[] zoneFiles = zonesFolder.listFiles((dir, name) -> name.endsWith(".yml"));
         if (zoneFiles == null) {
-            logger.info("No zones to load.");
+            logger.fine("No zones to load.");
             return;
         }
 
@@ -58,12 +58,12 @@ public class ZoneManager {
                 }
                 Zone zone = new Zone(zoneData);
                 zones.put(zoneName, zone);
-                logger.info("Loaded zone: " + zoneName);
+                logger.fine("Loaded zone: " + zoneName);
             } catch (Exception e) {
                 logger.warning("Failed to load zone from " + zoneFile.getName() + ": " + e.getMessage());
             }
         }
-        logger.info("Loaded " + zones.size() + " zones.");
+        logger.fine("Loaded " + zones.size() + " zones.");
     }
 
     public void saveZone(Zone zone) {
@@ -80,7 +80,7 @@ public class ZoneManager {
         }
         try {
             saveAtomically(zoneConfig, zoneFile);
-            logger.info("Saved zone: " + zone.getName());
+            logger.fine("Saved zone: " + zone.getName());
             if (actorId != null && operation != null) {
                 audit().emit(operation, AuditOutcome.COMMITTED, actorId, null, zone, metadata);
             }

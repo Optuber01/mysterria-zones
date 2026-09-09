@@ -28,3 +28,7 @@ Every event includes bounded zone context: `zone`, `world`, `min_x`, `min_y`,
 events additionally include `field`, `previous`, and `value` when available.
 Metadata is capped to 32 keys and 256 characters per textual value. No chat
 content, coordinates beyond the zone bounds, or player names are recorded.
+
+## Overlap policy
+
+Zone YAML remains required live configuration. Routine successful save output is debug-level; domain change events remain actor-aware. Failure diagnostics are retained.
