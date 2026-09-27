@@ -20,9 +20,13 @@ The stable audit `businessId` is the zone name. Each emission receives a new
 correlation UUID because these commands are single-step operations. `actorId`
 is the staff player UUID and banish events also set `targetId` to the affected
 player UUID. All successful mutations use `COMMITTED` and are emitted only
-after the zone YAML write succeeds. Failed writes are not emitted. The only
-rejected operation that is emitted is a banish of an already-banished player
-(`DENIED`, audit reason and `reason` metadata `already_banished`).
+after the zone YAML write succeeds. When the YAML write (or, for
+`zone.deleted`, the file delete) fails for a staff create, update, config
+update, delete, banish or unbanish, the same event type is emitted as `FAILED`
+with audit reason and `reason` metadata `persist_failed`; the zone map is left
+unchanged. The only rejected operation that is emitted is a banish of an
+already-banished player (`DENIED`, audit reason and `reason` metadata
+`already_banished`).
 
 Risk is `NORMAL` except for `zone.bypass_used`, which is `HIGH`. Privacy is
 `STAFF_RESTRICTED`, except for `zone.updated` rows for `enter_message` and
@@ -34,14 +38,17 @@ action that protection would otherwise have blocked or reverted in a
 protected zone. `action` is one of `block_break`, `block_place`,
 `block_interact` or `ability_use` (the last only when CircleOfImagination is
 loaded). Rows are rate-limited in memory to one per player per zone per five
-minutes, and the limit resets on restart.
+minutes, and the limit resets on restart. The rate-limit map holds at most
+1024 player/zone pairs; the oldest pair is evicted first.
 
 ## Metadata
 
 Every event includes bounded zone context: `zone`, `world`, `min_x`, `min_y`,
 `min_z`, `max_x`, `max_y`, `max_z`, `protection`, and `priority`.
 `zone.updated` and `zone.config.updated` also include `field`, `previous` and
-`value` when available. `zone.bypass_used` adds `action` and the position of
+`value` when available. `zone.created` adds the selected positions: pos1 as
+`world`, `x`, `y`, `z` and pos2 as `pos2_world`, `pos2_x`, `pos2_y`, `pos2_z`.
+`zone.bypass_used` adds `action` and the position of
 the protected block or player as `world`, `x`, `y`, `z`. `zone.deleted`
 snapshots the removed zone: its bounds come from the standard zone context,
 plus `banished_count`, `banished_players` (comma-separated sorted UUIDs, cut at
