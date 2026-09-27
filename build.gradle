@@ -50,14 +50,11 @@ shadowJar {
     relocate 'dev.ua.ikeepcalm.mysterria.audit', 'net.mysterria.zones.libs.audit'
 }
 
-def targetJavaVersion = 25
+def targetJavaVersion = 21
+def toolchainJavaVersion = 25
 java {
-    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
-    sourceCompatibility = javaVersion
-    targetCompatibility = javaVersion
-    if (JavaVersion.current() < javaVersion) {
-        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
-    }
+    toolchain.languageVersion = JavaLanguageVersion.of(toolchainJavaVersion)
+    disableAutoTargetJvm()
 }
 
 tasks.withType(JavaCompile).configureEach {
