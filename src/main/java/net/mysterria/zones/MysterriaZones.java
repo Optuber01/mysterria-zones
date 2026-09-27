@@ -71,21 +71,24 @@ public class MysterriaZones extends JavaPlugin implements Listener {
     public void onDisable() {
         getLogger().info("myzones plugin disabled!");
 
-        if (liteCommands != null) {
-            liteCommands.unregister();
-        }
+        try {
+            if (liteCommands != null) {
+                liteCommands.unregister();
+            }
 
-        if (zoneTrackingService != null) {
-            zoneTrackingService.stopTracking();
-        }
+            if (zoneTrackingService != null) {
+                zoneTrackingService.stopTracking();
+            }
 
-        if (zoneManager != null) {
-            zoneManager.getAllZones().forEach(zoneManager::saveZone);
-        }
+            if (zoneManager != null) {
+                zoneManager.getAllZones().forEach(zoneManager::saveZone);
+            }
 
-        saveConfigData();
-        if (auditEmitter != null) {
-            auditEmitter.close();
+            saveConfigData();
+        } finally {
+            if (auditEmitter != null) {
+                auditEmitter.close();
+            }
         }
     }
 

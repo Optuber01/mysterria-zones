@@ -22,12 +22,22 @@ public final class ZoneAuditEmitter implements AutoCloseable {
     /** Event-specific position keys override the zone-context world when supplied. */
     private static final Set<String> LOCATION_KEYS = Set.of("world", "x", "y", "z");
 
+    /** Null when the audit client failed to initialise; every call is then a no-op. */
     private final AuditProducer producer;
 
     public ZoneAuditEmitter(JavaPlugin plugin) {
-        this.producer = AuditProducer.create(plugin.getDataFolder().toPath().toAbsolutePath().getParent()
-                        .resolve("mysterria-audit-spool"),
-                "mysterria-zones", plugin.getPluginMeta().getVersion());
+        this.producer = createProducer(plugin);
+    }
+
+    private static AuditProducer createProducer(JavaPlugin plugin) {
+        try {
+            return AuditProducer.create(plugin.getDataFolder().toPath().toAbsolutePath().getParent()
+                            .resolve("mysterria-audit-spool"),
+                    "mysterria-zones", plugin.getPluginMeta().getVersion());
+        } catch (RuntimeException | LinkageError failure) {
+            plugin.getLogger().warning("Audit client unavailable; zone audit events are disabled: " + failure);
+            return null;
+        }
     }
 
     /**
@@ -44,7 +54,7 @@ public final class ZoneAuditEmitter implements AutoCloseable {
     /** Emits a zone event with an explicit risk, privacy class and optional reason. */
     public void emit(String operation, AuditOutcome outcome, AuditRisk risk, AuditPrivacy privacy,
                      UUID actorId, UUID targetId, Zone zone, String reason, Map<String, ?> metadata) {
-        if (operation == null || operation.isBlank() || zone == null || actorId == null) {
+        if (producer == null || operation == null || operation.isBlank() || zone == null || actorId == null) {
             return;
         }
 
@@ -55,7 +65,15 @@ public final class ZoneAuditEmitter implements AutoCloseable {
                     reason == null ? null : bounded(reason, MAX_TEXT), bounded);
         } catch (RuntimeException | LinkageError failure) {
             // Audit delivery is best effort and must never gate gameplay or persistence.
+            recordFailure();
+        }
+    }
+
+    private void recordFailure() {
+        try {
             producer.recordFailure();
+        } catch (RuntimeException | LinkageError ignored) {
+            // Failure accounting is itself best effort.
         }
     }
 
@@ -107,6 +125,13 @@ public final class ZoneAuditEmitter implements AutoCloseable {
 
     @Override
     public void close() {
-        producer.close();
+        if (producer == null) {
+            return;
+        }
+        try {
+            producer.close();
+        } catch (RuntimeException | LinkageError ignored) {
+            // Shutdown must continue even if the audit client cannot flush.
+        }
     }
 }
