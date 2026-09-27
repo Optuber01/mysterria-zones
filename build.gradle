@@ -50,6 +50,10 @@ shadowJar {
     relocate 'dev.ua.ikeepcalm.mysterria.audit', 'net.mysterria.zones.libs.audit'
 }
 
+jar {
+    enabled = false
+}
+
 def targetJavaVersion = 21
 def toolchainJavaVersion = 25
 java {
