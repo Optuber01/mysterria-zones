@@ -10,11 +10,17 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /** Best-effort bridge to the optional shared Mysterria audit ledger. */
 public final class ZoneAuditEmitter implements AutoCloseable {
     private static final int MAX_TEXT = 256;
+    /** Snapshot keys that may use the client's full per-value budget. */
+    private static final int MAX_LONG_TEXT = 1_024;
+    private static final Set<String> LONG_TEXT_KEYS = Set.of("banished_players");
+    /** Event-specific position keys override the zone-context world when supplied. */
+    private static final Set<String> LOCATION_KEYS = Set.of("world", "x", "y", "z");
 
     private final AuditProducer producer;
 
@@ -25,27 +31,33 @@ public final class ZoneAuditEmitter implements AutoCloseable {
     }
 
     /**
-     * Emits a staff-restricted zone event. The call only resolves the optional
-     * service and delegates to its non-blocking implementation; failures never
-     * affect zone persistence or command responses.
+     * Emits a staff-restricted, normal-risk zone event. The call only resolves the
+     * optional service and delegates to its non-blocking implementation; failures
+     * never affect zone persistence or command responses.
      */
     public void emit(String operation, AuditOutcome outcome, UUID actorId, UUID targetId,
                      Zone zone, Map<String, ?> metadata) {
+        emit(operation, outcome, AuditRisk.NORMAL, AuditPrivacy.STAFF_RESTRICTED,
+                actorId, targetId, zone, null, metadata);
+    }
+
+    /** Emits a zone event with an explicit risk, privacy class and optional reason. */
+    public void emit(String operation, AuditOutcome outcome, AuditRisk risk, AuditPrivacy privacy,
+                     UUID actorId, UUID targetId, Zone zone, String reason, Map<String, ?> metadata) {
         if (operation == null || operation.isBlank() || zone == null || actorId == null) {
             return;
         }
 
         try {
             Map<String, Object> bounded = boundedMetadata(zone, metadata);
-            producer.emit("mysterria-zones." + operation, outcome, AuditRisk.NORMAL,
-                    AuditPrivacy.STAFF_RESTRICTED, UUID.randomUUID(), zone.getName(),
-                    actorId, null, targetId, null, bounded);
+            producer.emit("mysterria-zones." + operation, outcome, risk, privacy,
+                    UUID.randomUUID(), zone.getName(), actorId, null, targetId,
+                    reason == null ? null : bounded(reason, MAX_TEXT), bounded);
         } catch (RuntimeException | LinkageError failure) {
             // Audit delivery is best effort and must never gate gameplay or persistence.
             producer.recordFailure();
         }
     }
-
 
     private Map<String, Object> boundedMetadata(Zone zone, Map<String, ?> metadata) {
         Map<String, Object> result = new LinkedHashMap<>();
@@ -62,28 +74,35 @@ public final class ZoneAuditEmitter implements AutoCloseable {
         if (metadata != null) {
             metadata.forEach((key, value) -> {
                 if (key != null && !key.isBlank() && result.size() < 32 && value != null) {
-                    String boundedKey = bounded(key);
-                    result.putIfAbsent(boundedKey, boundedValue(value));
+                    String boundedKey = bounded(key, MAX_TEXT);
+                    Object boundedValue = boundedValue(boundedKey, value);
+                    if (LOCATION_KEYS.contains(boundedKey)) {
+                        result.put(boundedKey, boundedValue);
+                    } else {
+                        result.putIfAbsent(boundedKey, boundedValue);
+                    }
                 }
             });
         }
         return Collections.unmodifiableMap(new LinkedHashMap<>(result));
     }
 
-    private Object boundedValue(Object value) {
-        if (value instanceof String text) {
-            return bounded(text);
-        }
+    private Object boundedValue(String key, Object value) {
         if (value instanceof Number || value instanceof Boolean) {
             return value;
         }
-        return bounded(String.valueOf(value));
+        int limit = LONG_TEXT_KEYS.contains(key) ? MAX_LONG_TEXT : MAX_TEXT;
+        return bounded(value instanceof String text ? text : String.valueOf(value), limit);
     }
 
     private String bounded(String value) {
+        return bounded(value, MAX_TEXT);
+    }
+
+    private static String bounded(String value, int limit) {
         if (value == null) return "";
-        if (value.codePointCount(0, value.length()) <= MAX_TEXT) return value;
-        return value.substring(0, value.offsetByCodePoints(0, MAX_TEXT));
+        if (value.codePointCount(0, value.length()) <= limit) return value;
+        return value.substring(0, value.offsetByCodePoints(0, limit));
     }
 
     @Override

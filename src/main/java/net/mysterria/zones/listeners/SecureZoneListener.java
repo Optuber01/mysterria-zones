@@ -1,8 +1,8 @@
 package net.mysterria.zones.listeners;
 
-import dev.ua.ikeepcalm.coi.api.event.AbilityUsageEvent;
 import lombok.Getter;
 import net.mysterria.zones.MysterriaZones;
+import net.mysterria.zones.audit.ZoneBypassAuditor;
 import net.mysterria.zones.model.Zone;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -41,19 +41,10 @@ public class SecureZoneListener implements Listener {
 
     private final int minRestoreDelayTicks = 2 * 20;
     private final int maxRestoreDelayTicks = 10 * 20;
-    private final String bypassPermission = "myzones.bypass";
+    private final ZoneBypassAuditor bypassAuditor;
 
-    @EventHandler
-    public void onAbilityUsage(AbilityUsageEvent event) {
-        if (event.getPlayer().hasPermission(bypassPermission)) {
-            return;
-        }
-
-        Location location = event.getPlayer().getLocation();
-        Zone zone = MysterriaZones.getInstance().getZoneManager().getHighestPriorityZone(location);
-        if (zone != null && zone.isProtection()) {
-            event.setCancelled(true);
-        }
+    public SecureZoneListener(ZoneBypassAuditor bypassAuditor) {
+        this.bypassAuditor = bypassAuditor;
     }
 
     @EventHandler
@@ -92,14 +83,14 @@ public class SecureZoneListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onBlockInteract(PlayerInteractEvent event) {
-        if (event.getPlayer().hasPermission(bypassPermission)) {
-            return;
-        }
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             Block block = event.getClickedBlock();
             if (block != null && block.getType() != Material.LECTERN && block.getType() != Material.CRAFTING_TABLE) {
-                Zone zone = MysterriaZones.getInstance().getZoneManager().getHighestPriorityZone(event.getClickedBlock().getLocation());
+                Zone zone = MysterriaZones.getInstance().getZoneManager().getHighestPriorityZone(block.getLocation());
                 if (zone != null && zone.isProtection()) {
+                    if (bypassed(event.getPlayer(), zone, "block_interact", block.getLocation())) {
+                        return;
+                    }
                     event.setCancelled(true);
                 }
             }
@@ -110,11 +101,11 @@ public class SecureZoneListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
         Block block = event.getBlock();
-        if (event.getPlayer().hasPermission(bypassPermission)) {
-            return;
-        }
         Zone zone = MysterriaZones.getInstance().getZoneManager().getHighestPriorityZone(block.getLocation());
         if (zone != null && zone.isProtection()) {
+            if (bypassed(event.getPlayer(), zone, "block_break", block.getLocation())) {
+                return;
+            }
             if (!event.getPlayer().isOp()) {
                 event.setDropItems(false);
                 event.setExpToDrop(0);
@@ -136,11 +127,11 @@ public class SecureZoneListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
         Block block = event.getBlock();
-        if (event.getPlayer().hasPermission(bypassPermission)) {
-            return;
-        }
         Zone zone = MysterriaZones.getInstance().getZoneManager().getHighestPriorityZone(block.getLocation());
         if (zone != null && zone.isProtection()) {
+            if (bypassed(event.getPlayer(), zone, "block_place", block.getLocation())) {
+                return;
+            }
             if (Tag.SHULKER_BOXES.isTagged(event.getBlockPlaced().getType())) {
                 event.setCancelled(true);
             }
@@ -190,6 +181,10 @@ public class SecureZoneListener implements Listener {
         if (zone != null && zone.isProtection()) {
             event.setCancelled(true);
         }
+    }
+
+    private boolean bypassed(Player player, Zone zone, String action, Location location) {
+        return bypassAuditor.bypasses(player, zone, action, location);
     }
 
     private void handleExplosion(List<Block> blockList) {

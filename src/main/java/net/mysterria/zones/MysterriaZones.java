@@ -9,6 +9,8 @@ import net.mysterria.zones.commands.ZoneCommands;
 import net.mysterria.zones.commands.ZoneConfigCommands;
 import net.mysterria.zones.commands.ZoneUtilityCommands;
 import net.mysterria.zones.audit.ZoneAuditEmitter;
+import net.mysterria.zones.audit.ZoneBypassAuditor;
+import net.mysterria.zones.listeners.CoiAbilityZoneListener;
 import net.mysterria.zones.listeners.SecureZoneListener;
 import net.mysterria.zones.manager.ZoneManager;
 import net.mysterria.zones.service.ZoneTrackingService;
@@ -50,7 +52,13 @@ public class MysterriaZones extends JavaPlugin implements Listener {
         zoneManager = new ZoneManager(this);
         zoneTrackingService = new ZoneTrackingService(this);
 
-        getServer().getPluginManager().registerEvents(new SecureZoneListener(), this);
+        ZoneBypassAuditor bypassAuditor = new ZoneBypassAuditor(this::getAuditEmitter);
+        getServer().getPluginManager().registerEvents(new SecureZoneListener(bypassAuditor), this);
+        if (getServer().getPluginManager().getPlugin("CircleOfImagination") != null) {
+            getServer().getPluginManager().registerEvents(new CoiAbilityZoneListener(bypassAuditor), this);
+        } else {
+            getLogger().warning("CircleOfImagination not found; ability protection in zones is inactive.");
+        }
 
         registerLiteCommands();
 
