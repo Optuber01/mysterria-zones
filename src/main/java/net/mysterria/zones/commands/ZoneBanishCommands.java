@@ -8,6 +8,7 @@ import dev.rollczi.litecommands.annotations.permission.Permission;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.mysterria.zones.MysterriaZones;
+import net.mysterria.zones.manager.ZoneManager;
 import net.mysterria.zones.model.Zone;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -35,12 +36,13 @@ public class ZoneBanishCommands {
             return;
         }
 
-        if (zone.isBanished(target.getUniqueId())) {
+        ZoneManager.BanishResult result = plugin.getZoneManager()
+                .banishPlayer(zone, target.getUniqueId(), player.getUniqueId());
+        if (result == ZoneManager.BanishResult.ALREADY_BANISHED) {
             player.sendMessage(Component.text(target.getName() + " is already banished from zone '" + zoneName + "'!", NamedTextColor.YELLOW));
             return;
         }
-
-        if (!plugin.getZoneManager().banishPlayer(zone, target.getUniqueId(), player.getUniqueId())) {
+        if (result == ZoneManager.BanishResult.PERSIST_FAILED) {
             player.sendMessage(Component.text("Could not persist banishment for zone '" + zoneName + "'.", NamedTextColor.RED));
             return;
         }

@@ -2,6 +2,8 @@ package net.mysterria.zones.manager;
 
 import net.mysterria.zones.MysterriaZones;
 import dev.ua.ikeepcalm.mysterria.audit.client.api.AuditOutcome;
+import dev.ua.ikeepcalm.mysterria.audit.client.api.AuditPrivacy;
+import dev.ua.ikeepcalm.mysterria.audit.client.api.AuditRisk;
 import net.mysterria.zones.audit.ZoneAuditEmitter;
 import net.mysterria.zones.model.Zone;
 import org.bukkit.Location;
@@ -22,6 +24,12 @@ import java.util.*;
 import java.util.logging.Logger;
 
 public class ZoneManager {
+    /** Mirrors the audit client's per-value budget for the deleted-zone ban snapshot. */
+    private static final int MAX_BANISHED_SNAPSHOT_CHARS = 1_024;
+
+    /** Result of a staff banish request. */
+    public enum BanishResult { BANISHED, ALREADY_BANISHED, PERSIST_FAILED }
+
     private final MysterriaZones plugin;
     private final Map<String, Zone> zones;
     private final File zonesFolder;
@@ -143,6 +151,7 @@ public class ZoneManager {
         if (removed == null) {
             return false;
         }
+        Map<String, Object> snapshot = actorId == null ? Map.of() : banishedSnapshot(removed);
 
         File zoneFile = new File(zonesFolder, name + ".yml");
         if (zoneFile.exists() && !zoneFile.delete()) {
@@ -151,9 +160,28 @@ public class ZoneManager {
 
         zones.remove(name);
         if (actorId != null) {
-            audit().emit("zone.deleted", AuditOutcome.COMMITTED, actorId, null, removed, Map.of());
+            audit().emit("zone.deleted", AuditOutcome.COMMITTED, actorId, null, removed, snapshot);
         }
         return true;
+    }
+
+    /** Captures the ban list of a zone about to be removed, cut at whole-UUID boundaries. */
+    private Map<String, Object> banishedSnapshot(Zone zone) {
+        List<String> banished = zone.getBanishedPlayers().stream().map(UUID::toString).sorted().toList();
+        StringBuilder joined = new StringBuilder();
+        int included = 0;
+        for (String id : banished) {
+            int needed = joined.isEmpty() ? id.length() : id.length() + 1;
+            if (joined.length() + needed > MAX_BANISHED_SNAPSHOT_CHARS) break;
+            if (!joined.isEmpty()) joined.append(',');
+            joined.append(id);
+            included++;
+        }
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("banished_count", banished.size());
+        snapshot.put("banished_players", joined.toString());
+        snapshot.put("banished_players_truncated", included < banished.size());
+        return snapshot;
     }
 
     public Zone getZone(String name) {
@@ -194,6 +222,12 @@ public class ZoneManager {
     }
 
     public boolean updateZone(Zone zone, UUID actorId, String operation, Map<String, ?> metadata) {
+        return updateZone(zone, actorId, operation, AuditPrivacy.STAFF_RESTRICTED, metadata);
+    }
+
+    /** Persists and registers a zone edit, then emits {@code operation} with the given privacy class. */
+    public boolean updateZone(Zone zone, UUID actorId, String operation, AuditPrivacy privacy,
+                              Map<String, ?> metadata) {
         boolean persisted = saveZone(zone, null, null, null);
         if (!persisted) {
             return false;
@@ -201,7 +235,8 @@ public class ZoneManager {
 
         zones.put(zone.getName(), zone);
         if (actorId != null && operation != null) {
-            audit().emit(operation, AuditOutcome.COMMITTED, actorId, null, zone, metadata);
+            audit().emit(operation, AuditOutcome.COMMITTED, AuditRisk.NORMAL, privacy,
+                    actorId, null, zone, null, metadata);
         }
         return true;
     }
@@ -210,18 +245,25 @@ public class ZoneManager {
         banishPlayer(zone, playerId, null);
     }
 
-    public boolean banishPlayer(Zone zone, UUID playerId, UUID actorId) {
-        if (zone.isBanished(playerId)) return false;
+    public BanishResult banishPlayer(Zone zone, UUID playerId, UUID actorId) {
+        if (zone.isBanished(playerId)) {
+            if (actorId != null) {
+                audit().emit("zone.banished", AuditOutcome.DENIED, AuditRisk.NORMAL,
+                        AuditPrivacy.STAFF_RESTRICTED, actorId, playerId, zone, "already_banished",
+                        Map.of("reason", "already_banished"));
+            }
+            return BanishResult.ALREADY_BANISHED;
+        }
         zone.banishPlayer(playerId);
         boolean persisted = saveZone(zone, null, null, null);
         if (!persisted) {
             zone.unbanishPlayer(playerId);
-            return false;
+            return BanishResult.PERSIST_FAILED;
         }
         if (actorId != null) {
             audit().emit("zone.banished", AuditOutcome.COMMITTED, actorId, playerId, zone, Map.of());
         }
-        return true;
+        return BanishResult.BANISHED;
     }
 
     public void unbanishPlayer(Zone zone, UUID playerId) {

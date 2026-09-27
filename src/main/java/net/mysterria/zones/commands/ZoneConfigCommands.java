@@ -1,5 +1,6 @@
 package net.mysterria.zones.commands;
 
+import dev.ua.ikeepcalm.mysterria.audit.client.api.AuditPrivacy;
 import dev.rollczi.litecommands.annotations.argument.Arg;
 import dev.rollczi.litecommands.annotations.command.Command;
 import dev.rollczi.litecommands.annotations.context.Context;
@@ -19,6 +20,11 @@ import java.util.Map;
 @Permission("myzones.zone")
 public class ZoneConfigCommands {
 
+    /** Presentation edits (display name, enter/exit messages). */
+    private static final String ZONE_UPDATED = "zone.updated";
+    /** Protection-affecting settings (protection toggle, priority). */
+    private static final String CONFIG_UPDATED = "zone.config.updated";
+
     private final MysterriaZones plugin;
 
     public ZoneConfigCommands(MysterriaZones plugin) {
@@ -37,8 +43,8 @@ public class ZoneConfigCommands {
         String previous = zone.getEnterMessage();
         Map<String, Object> metadata = auditMetadata("enter_message", previous, message);
         zone.setEnterMessage(message);
-        if (plugin.getZoneManager().saveZone(zone, player.getUniqueId(), "zone.config.updated",
-                metadata)) {
+        if (plugin.getZoneManager().updateZone(zone, player.getUniqueId(), ZONE_UPDATED,
+                AuditPrivacy.GAMEPLAY_INPUT, metadata)) {
             player.sendMessage(Component.text("Enter message updated for zone '" + zoneName + "'!", NamedTextColor.GREEN));
         } else {
             zone.setEnterMessage(previous);
@@ -58,8 +64,8 @@ public class ZoneConfigCommands {
         String previous = zone.getExitMessage();
         Map<String, Object> metadata = auditMetadata("exit_message", previous, message);
         zone.setExitMessage(message);
-        if (plugin.getZoneManager().saveZone(zone, player.getUniqueId(), "zone.config.updated",
-                metadata)) {
+        if (plugin.getZoneManager().updateZone(zone, player.getUniqueId(), ZONE_UPDATED,
+                AuditPrivacy.GAMEPLAY_INPUT, metadata)) {
             player.sendMessage(Component.text("Exit message updated for zone '" + zoneName + "'!", NamedTextColor.GREEN));
         } else {
             zone.setExitMessage(previous);
@@ -79,7 +85,7 @@ public class ZoneConfigCommands {
         String previous = zone.getDisplayName();
         Map<String, Object> metadata = auditMetadata("display_name", previous, displayName);
         zone.setDisplayName(displayName);
-        if (plugin.getZoneManager().updateZone(zone, player.getUniqueId(), "zone.config.updated",
+        if (plugin.getZoneManager().updateZone(zone, player.getUniqueId(), ZONE_UPDATED,
                 metadata)) {
             player.sendMessage(Component.text("Display name updated to '" + displayName + "' for zone '" + zoneName + "'!", NamedTextColor.GREEN));
         } else {
@@ -100,7 +106,7 @@ public class ZoneConfigCommands {
         boolean previous = zone.isProtection();
         Map<String, Object> metadata = auditMetadata("protection", previous, !previous);
         zone.setProtection(!previous);
-        if (plugin.getZoneManager().updateZone(zone, player.getUniqueId(), "zone.config.updated",
+        if (plugin.getZoneManager().updateZone(zone, player.getUniqueId(), CONFIG_UPDATED,
                 metadata)) {
             String status = zone.isProtection() ? "enabled" : "disabled";
             player.sendMessage(Component.text("Protection " + status + " for zone '" + zoneName + "'!", NamedTextColor.GREEN));
@@ -122,7 +128,7 @@ public class ZoneConfigCommands {
         int previous = zone.getPriority();
         Map<String, Object> metadata = auditMetadata("priority", previous, priority);
         zone.setPriority(priority);
-        if (plugin.getZoneManager().updateZone(zone, player.getUniqueId(), "zone.config.updated",
+        if (plugin.getZoneManager().updateZone(zone, player.getUniqueId(), CONFIG_UPDATED,
                 metadata)) {
             player.sendMessage(Component.text("Priority set to " + priority + " for zone '" + zoneName + "'!", NamedTextColor.GREEN));
         } else {
