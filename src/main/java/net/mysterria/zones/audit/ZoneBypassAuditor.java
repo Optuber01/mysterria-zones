@@ -7,7 +7,6 @@ import net.mysterria.zones.model.Zone;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -21,9 +20,17 @@ public final class ZoneBypassAuditor {
     public static final String BYPASS_PERMISSION = "myzones.bypass";
     public static final long WINDOW_MILLIS = 5L * 60L * 1_000L;
     private static final int PRUNE_THRESHOLD = 512;
+    /** Hard cap on tracked player/zone pairs; the oldest emission is evicted first. */
+    static final int MAX_ENTRIES = 1024;
 
     private final Supplier<ZoneAuditEmitter> emitter;
-    private final Map<Key, Long> lastEmitted = new HashMap<>();
+    /** Insertion-ordered by last emission, so the eldest entry is the oldest emission. */
+    private final Map<Key, Long> lastEmitted = new LinkedHashMap<>(16, 0.75f, false) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<Key, Long> eldest) {
+            return size() > MAX_ENTRIES;
+        }
+    };
 
     public ZoneBypassAuditor(Supplier<ZoneAuditEmitter> emitter) {
         this.emitter = emitter;
@@ -52,6 +59,7 @@ public final class ZoneBypassAuditor {
             return;
         }
         pruneIfLarge(now);
+        lastEmitted.remove(key);
         lastEmitted.put(key, now);
 
         ZoneAuditEmitter audit = emitter.get();
