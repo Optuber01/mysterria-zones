@@ -24,6 +24,8 @@ import java.util.*;
 import java.util.logging.Logger;
 
 public class ZoneManager {
+    /** Audit reason and metadata value for a failed YAML write or delete. */
+    private static final String PERSIST_FAILED_REASON = "persist_failed";
     /** Mirrors the audit client's per-value budget for the deleted-zone ban snapshot. */
     private static final int MAX_BANISHED_SNAPSHOT_CHARS = 1_024;
 
@@ -95,6 +97,9 @@ public class ZoneManager {
             return true;
         } catch (IOException e) {
             logger.severe("Failed to save zone " + zone.getName() + ": " + e.getMessage());
+            if (actorId != null && operation != null) {
+                emitPersistFailed(operation, AuditPrivacy.STAFF_RESTRICTED, actorId, null, zone, metadata);
+            }
             return false;
         }
     }
@@ -132,12 +137,16 @@ public class ZoneManager {
 
     public boolean createZone(String name, Location point1, Location point2, UUID actorId) {
         Zone zone = new Zone(name, point1, point2);
+        Map<String, Object> positions = actorId == null ? Map.of() : selectedPositions(point1, point2);
         if (!saveZone(zone, null, null, null)) {
+            if (actorId != null) {
+                emitPersistFailed("zone.created", AuditPrivacy.STAFF_RESTRICTED, actorId, null, zone, positions);
+            }
             return false;
         }
         zones.put(name, zone);
         if (actorId != null) {
-            audit().emit("zone.created", AuditOutcome.COMMITTED, actorId, null, zone, Map.of());
+            audit().emit("zone.created", AuditOutcome.COMMITTED, actorId, null, zone, positions);
         }
         return true;
     }
@@ -155,6 +164,9 @@ public class ZoneManager {
 
         File zoneFile = new File(zonesFolder, name + ".yml");
         if (zoneFile.exists() && !zoneFile.delete()) {
+            if (actorId != null) {
+                emitPersistFailed("zone.deleted", AuditPrivacy.STAFF_RESTRICTED, actorId, null, removed, snapshot);
+            }
             return false;
         }
 
@@ -163,6 +175,24 @@ public class ZoneManager {
             audit().emit("zone.deleted", AuditOutcome.COMMITTED, actorId, null, removed, snapshot);
         }
         return true;
+    }
+
+    /** Selected corner positions: {@code world}/{@code x}/{@code y}/{@code z} for pos1, {@code pos2_*} for pos2. */
+    private static Map<String, Object> selectedPositions(Location point1, Location point2) {
+        Map<String, Object> positions = new LinkedHashMap<>();
+        putPosition(positions, "", point1);
+        putPosition(positions, "pos2_", point2);
+        return positions;
+    }
+
+    private static void putPosition(Map<String, Object> target, String prefix, Location location) {
+        if (location == null) return;
+        if (location.getWorld() != null) {
+            target.put(prefix + "world", location.getWorld().getName());
+        }
+        target.put(prefix + "x", location.getX());
+        target.put(prefix + "y", location.getY());
+        target.put(prefix + "z", location.getZ());
     }
 
     /** Captures the ban list of a zone about to be removed, cut at whole-UUID boundaries. */
@@ -230,6 +260,9 @@ public class ZoneManager {
                               Map<String, ?> metadata) {
         boolean persisted = saveZone(zone, null, null, null);
         if (!persisted) {
+            if (actorId != null && operation != null) {
+                emitPersistFailed(operation, privacy, actorId, null, zone, metadata);
+            }
             return false;
         }
 
@@ -258,6 +291,9 @@ public class ZoneManager {
         boolean persisted = saveZone(zone, null, null, null);
         if (!persisted) {
             zone.unbanishPlayer(playerId);
+            if (actorId != null) {
+                emitPersistFailed("zone.banished", AuditPrivacy.STAFF_RESTRICTED, actorId, playerId, zone, Map.of());
+            }
             return BanishResult.PERSIST_FAILED;
         }
         if (actorId != null) {
@@ -276,12 +312,27 @@ public class ZoneManager {
         boolean persisted = saveZone(zone, null, null, null);
         if (!persisted) {
             zone.banishPlayer(playerId);
+            if (actorId != null) {
+                emitPersistFailed("zone.unbanished", AuditPrivacy.STAFF_RESTRICTED, actorId, playerId, zone, Map.of());
+            }
             return false;
         }
         if (actorId != null) {
             audit().emit("zone.unbanished", AuditOutcome.COMMITTED, actorId, playerId, zone, Map.of());
         }
         return true;
+    }
+
+    /** Emits {@code operation} as {@code FAILED} after the YAML write or delete it depended on failed. */
+    private void emitPersistFailed(String operation, AuditPrivacy privacy, UUID actorId, UUID targetId,
+                                   Zone zone, Map<String, ?> metadata) {
+        Map<String, Object> failure = new LinkedHashMap<>();
+        if (metadata != null) {
+            failure.putAll(metadata);
+        }
+        failure.put("reason", PERSIST_FAILED_REASON);
+        audit().emit(operation, AuditOutcome.FAILED, AuditRisk.NORMAL, privacy,
+                actorId, targetId, zone, PERSIST_FAILED_REASON, failure);
     }
 
     private ZoneAuditEmitter audit() {
