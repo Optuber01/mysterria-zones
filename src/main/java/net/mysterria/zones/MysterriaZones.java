@@ -8,6 +8,7 @@ import net.mysterria.zones.commands.ZoneBanishCommands;
 import net.mysterria.zones.commands.ZoneCommands;
 import net.mysterria.zones.commands.ZoneConfigCommands;
 import net.mysterria.zones.commands.ZoneUtilityCommands;
+import net.mysterria.zones.listeners.CoiAbilityZoneListener;
 import net.mysterria.zones.listeners.SecureZoneListener;
 import net.mysterria.zones.manager.ZoneManager;
 import net.mysterria.zones.service.ZoneTrackingService;
@@ -48,6 +49,11 @@ public class MysterriaZones extends JavaPlugin implements Listener {
         zoneTrackingService = new ZoneTrackingService(this);
 
         getServer().getPluginManager().registerEvents(new SecureZoneListener(), this);
+        if (getServer().getPluginManager().getPlugin("CircleOfImagination") != null) {
+            getServer().getPluginManager().registerEvents(new CoiAbilityZoneListener(), this);
+        } else {
+            getLogger().warning("CircleOfImagination not found; ability protection in zones is inactive.");
+        }
 
         registerLiteCommands();
 
@@ -137,7 +143,9 @@ public class MysterriaZones extends JavaPlugin implements Listener {
         double y = section.getDouble("y");
         double z = section.getDouble("z");
         if (worldName == null) throw new IllegalArgumentException("World name is missing or invalid in config.");
-        return new Location(getServer().getWorld(worldName), x, y, z);
+        org.bukkit.World world = getServer().getWorld(worldName);
+        if (world == null) throw new IllegalArgumentException("World is unavailable: " + worldName);
+        return new Location(world, x, y, z);
     }
 
     private void registerLiteCommands() {

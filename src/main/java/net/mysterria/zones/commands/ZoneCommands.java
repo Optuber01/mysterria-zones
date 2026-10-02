@@ -49,8 +49,11 @@ public class ZoneCommands {
             return;
         }
 
-        plugin.getZoneManager().createZone(zoneName, pos1, pos2);
-        player.sendMessage(Component.text("Zone '" + zoneName + "' created successfully!", NamedTextColor.GREEN));
+        if (plugin.getZoneManager().createAndPersistZone(zoneName, pos1, pos2)) {
+            player.sendMessage(Component.text("Zone '" + zoneName + "' created successfully!", NamedTextColor.GREEN));
+        } else {
+            player.sendMessage(Component.text("Zone '" + zoneName + "' could not be persisted.", NamedTextColor.RED));
+        }
     }
 
     @Execute(name = "delete")

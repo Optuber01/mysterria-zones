@@ -31,9 +31,14 @@ public class ZoneConfigCommands {
             return;
         }
 
+        String previous = zone.getEnterMessage();
         zone.setEnterMessage(message);
-        plugin.getZoneManager().saveZone(zone);
-        player.sendMessage(Component.text("Enter message updated for zone '" + zoneName + "'!", NamedTextColor.GREEN));
+        if (plugin.getZoneManager().persistZoneUpdate(zone)) {
+            player.sendMessage(Component.text("Enter message updated for zone '" + zoneName + "'!", NamedTextColor.GREEN));
+        } else {
+            zone.setEnterMessage(previous);
+            player.sendMessage(Component.text("Could not persist enter message for zone '" + zoneName + "'.", NamedTextColor.RED));
+        }
     }
 
     @Execute(name = "setexit")
@@ -45,9 +50,14 @@ public class ZoneConfigCommands {
             return;
         }
 
+        String previous = zone.getExitMessage();
         zone.setExitMessage(message);
-        plugin.getZoneManager().saveZone(zone);
-        player.sendMessage(Component.text("Exit message updated for zone '" + zoneName + "'!", NamedTextColor.GREEN));
+        if (plugin.getZoneManager().persistZoneUpdate(zone)) {
+            player.sendMessage(Component.text("Exit message updated for zone '" + zoneName + "'!", NamedTextColor.GREEN));
+        } else {
+            zone.setExitMessage(previous);
+            player.sendMessage(Component.text("Could not persist exit message for zone '" + zoneName + "'.", NamedTextColor.RED));
+        }
     }
 
     @Execute(name = "setdisplay")
@@ -59,9 +69,14 @@ public class ZoneConfigCommands {
             return;
         }
 
+        String previous = zone.getDisplayName();
         zone.setDisplayName(displayName);
-        plugin.getZoneManager().updateZone(zone);
-        player.sendMessage(Component.text("Display name updated to '" + displayName + "' for zone '" + zoneName + "'!", NamedTextColor.GREEN));
+        if (plugin.getZoneManager().persistZoneUpdate(zone)) {
+            player.sendMessage(Component.text("Display name updated to '" + displayName + "' for zone '" + zoneName + "'!", NamedTextColor.GREEN));
+        } else {
+            zone.setDisplayName(previous);
+            player.sendMessage(Component.text("Could not persist display name for zone '" + zoneName + "'.", NamedTextColor.RED));
+        }
     }
 
     @Execute(name = "toggle")
@@ -73,11 +88,15 @@ public class ZoneConfigCommands {
             return;
         }
 
-        zone.setProtection(!zone.isProtection());
-        plugin.getZoneManager().updateZone(zone);
-
-        String status = zone.isProtection() ? "enabled" : "disabled";
-        player.sendMessage(Component.text("Protection " + status + " for zone '" + zoneName + "'!", NamedTextColor.GREEN));
+        boolean previous = zone.isProtection();
+        zone.setProtection(!previous);
+        if (plugin.getZoneManager().persistZoneUpdate(zone)) {
+            String status = zone.isProtection() ? "enabled" : "disabled";
+            player.sendMessage(Component.text("Protection " + status + " for zone '" + zoneName + "'!", NamedTextColor.GREEN));
+        } else {
+            zone.setProtection(previous);
+            player.sendMessage(Component.text("Could not persist protection for zone '" + zoneName + "'.", NamedTextColor.RED));
+        }
     }
 
     @Execute(name = "priority")
@@ -89,8 +108,13 @@ public class ZoneConfigCommands {
             return;
         }
 
+        int previous = zone.getPriority();
         zone.setPriority(priority);
-        plugin.getZoneManager().updateZone(zone);
-        player.sendMessage(Component.text("Priority set to " + priority + " for zone '" + zoneName + "'!", NamedTextColor.GREEN));
+        if (plugin.getZoneManager().persistZoneUpdate(zone)) {
+            player.sendMessage(Component.text("Priority set to " + priority + " for zone '" + zoneName + "'!", NamedTextColor.GREEN));
+        } else {
+            zone.setPriority(previous);
+            player.sendMessage(Component.text("Could not persist priority for zone '" + zoneName + "'.", NamedTextColor.RED));
+        }
     }
 }

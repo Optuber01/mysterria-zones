@@ -1,6 +1,5 @@
 package net.mysterria.zones.listeners;
 
-import dev.ua.ikeepcalm.coi.api.event.AbilityUsageEvent;
 import lombok.Getter;
 import net.mysterria.zones.MysterriaZones;
 import net.mysterria.zones.model.Zone;
@@ -42,19 +41,6 @@ public class SecureZoneListener implements Listener {
     private final int minRestoreDelayTicks = 2 * 20;
     private final int maxRestoreDelayTicks = 10 * 20;
     private final String bypassPermission = "myzones.bypass";
-
-    @EventHandler
-    public void onAbilityUsage(AbilityUsageEvent event) {
-        if (event.getPlayer().hasPermission(bypassPermission)) {
-            return;
-        }
-
-        Location location = event.getPlayer().getLocation();
-        Zone zone = MysterriaZones.getInstance().getZoneManager().getHighestPriorityZone(location);
-        if (zone != null && zone.isProtection()) {
-            event.setCancelled(true);
-        }
-    }
 
     @EventHandler
     public void onEntitySpawn(CreatureSpawnEvent event) {
