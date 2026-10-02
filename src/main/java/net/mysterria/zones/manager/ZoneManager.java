@@ -80,6 +80,11 @@ public class ZoneManager {
         saveZone(zone, null, null, null);
     }
 
+    /** Persists a zone atomically; returns false when the YAML write failed. */
+    public boolean persistZone(Zone zone) {
+        return saveZone(zone, null, null, null);
+    }
+
     /** Persists a zone and emits an optional event only after the write succeeds. */
     public boolean saveZone(Zone zone, UUID actorId, String operation, Map<String, ?> metadata) {
         File zoneFile = new File(zonesFolder, zone.getName() + ".yml");
@@ -133,6 +138,11 @@ public class ZoneManager {
 
     public void createZone(String name, Location point1, Location point2) {
         createZone(name, point1, point2, null);
+    }
+
+    /** Registers the zone only after its YAML was written; returns false when the write failed. */
+    public boolean createAndPersistZone(String name, Location point1, Location point2) {
+        return createZone(name, point1, point2, null);
     }
 
     public boolean createZone(String name, Location point1, Location point2, UUID actorId) {
@@ -251,6 +261,11 @@ public class ZoneManager {
         updateZone(zone, null, null, null);
     }
 
+    /** Persists and registers a zone edit; returns false when the YAML write failed. */
+    public boolean persistZoneUpdate(Zone zone) {
+        return updateZone(zone, null, null, null);
+    }
+
     public boolean updateZone(Zone zone, UUID actorId, String operation, Map<String, ?> metadata) {
         return updateZone(zone, actorId, operation, AuditPrivacy.STAFF_RESTRICTED, metadata);
     }
@@ -276,6 +291,11 @@ public class ZoneManager {
 
     public void banishPlayer(Zone zone, UUID playerId) {
         banishPlayer(zone, playerId, null);
+    }
+
+    /** Banishes and persists, rolling the in-memory ban back when the YAML write failed. */
+    public BanishResult banishAndPersist(Zone zone, UUID playerId) {
+        return banishPlayer(zone, playerId, null);
     }
 
     public BanishResult banishPlayer(Zone zone, UUID playerId, UUID actorId) {
@@ -304,6 +324,11 @@ public class ZoneManager {
 
     public void unbanishPlayer(Zone zone, UUID playerId) {
         unbanishPlayer(zone, playerId, null);
+    }
+
+    /** Unbanishes and persists, restoring the ban when the YAML write failed. */
+    public boolean unbanishAndPersist(Zone zone, UUID playerId) {
+        return unbanishPlayer(zone, playerId, null);
     }
 
     public boolean unbanishPlayer(Zone zone, UUID playerId, UUID actorId) {

@@ -68,7 +68,23 @@ public class ZoneBanishCommands {
         }
 
         OfflinePlayer target = resolveOfflinePlayer(targetName);
-        String displayName = target.getName() != null ? target.getName() : targetName;
+        unbanishTarget(player, zoneName, zone, target, target.getName() != null ? target.getName() : targetName);
+    }
+
+    /** Callable overload for an already resolved player; not a registered command, uses its UUID as given. */
+    public void unbanish(Player player, String zoneName, OfflinePlayer target) {
+        Zone zone = plugin.getZoneManager().getZone(zoneName);
+
+        if (zone == null) {
+            player.sendMessage(Component.text("Zone '" + zoneName + "' not found!", NamedTextColor.RED));
+            return;
+        }
+
+        unbanishTarget(player, zoneName, zone, target,
+                target.getName() != null ? target.getName() : target.getUniqueId().toString());
+    }
+
+    private void unbanishTarget(Player player, String zoneName, Zone zone, OfflinePlayer target, String displayName) {
         if (!zone.isBanished(target.getUniqueId())) {
             player.sendMessage(Component.text(displayName + " is not banished from zone '" + zoneName + "'!", NamedTextColor.YELLOW));
             return;
