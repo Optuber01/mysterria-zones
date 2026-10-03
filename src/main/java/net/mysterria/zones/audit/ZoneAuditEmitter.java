@@ -13,16 +13,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/** Best-effort bridge to the optional shared Mysterria audit ledger. */
 public final class ZoneAuditEmitter implements AutoCloseable {
     private static final int MAX_TEXT = 256;
-    /** Snapshot keys that may use the client's full per-value budget. */
+    // Snapshot keys that may use the client's full per-value budget.
     private static final int MAX_LONG_TEXT = 1_024;
     private static final Set<String> LONG_TEXT_KEYS = Set.of("banished_players");
-    /** Event-specific position keys override the zone-context world when supplied. */
+    // Event-specific position keys override the zone-context world when supplied.
     private static final Set<String> LOCATION_KEYS = Set.of("world", "x", "y", "z");
 
-    /** Null when the audit client failed to initialise; every call is then a no-op. */
+    // Null when the audit client failed to initialise; every call is then a no-op.
     private final AuditProducer producer;
 
     public ZoneAuditEmitter(JavaPlugin plugin) {
@@ -40,18 +39,12 @@ public final class ZoneAuditEmitter implements AutoCloseable {
         }
     }
 
-    /**
-     * Emits a staff-restricted, normal-risk zone event. The call only resolves the
-     * optional service and delegates to its non-blocking implementation; failures
-     * never affect zone persistence or command responses.
-     */
     public void emit(String operation, AuditOutcome outcome, UUID actorId, UUID targetId,
                      Zone zone, Map<String, ?> metadata) {
         emit(operation, outcome, AuditRisk.NORMAL, AuditPrivacy.STAFF_RESTRICTED,
                 actorId, targetId, zone, null, metadata);
     }
 
-    /** Emits a zone event with an explicit risk, privacy class and optional reason. */
     public void emit(String operation, AuditOutcome outcome, AuditRisk risk, AuditPrivacy privacy,
                      UUID actorId, UUID targetId, Zone zone, String reason, Map<String, ?> metadata) {
         if (producer == null || operation == null || operation.isBlank() || zone == null || actorId == null) {

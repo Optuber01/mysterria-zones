@@ -86,7 +86,7 @@ public class SecureZoneListener implements Listener {
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             Block block = event.getClickedBlock();
             if (block != null && block.getType() != Material.LECTERN && block.getType() != Material.CRAFTING_TABLE) {
-                Zone zone = MysterriaZones.getInstance().getZoneManager().getHighestPriorityZone(block.getLocation());
+                Zone zone = MysterriaZones.getInstance().getZoneManager().getHighestPriorityZone(event.getClickedBlock().getLocation());
                 if (zone != null && zone.isProtection()) {
                     if (bypassed(event.getPlayer(), zone, "block_interact", block.getLocation())) {
                         return;

@@ -20,9 +20,7 @@ import java.util.Map;
 @Permission("myzones.zone")
 public class ZoneConfigCommands {
 
-    /** Presentation edits (display name, enter/exit messages). */
     private static final String ZONE_UPDATED = "zone.updated";
-    /** Protection-affecting settings (protection toggle, priority). */
     private static final String CONFIG_UPDATED = "zone.config.updated";
 
     private final MysterriaZones plugin;

@@ -24,12 +24,11 @@ import java.util.*;
 import java.util.logging.Logger;
 
 public class ZoneManager {
-    /** Audit reason and metadata value for a failed YAML write or delete. */
     private static final String PERSIST_FAILED_REASON = "persist_failed";
-    /** Mirrors the audit client's per-value budget for the deleted-zone ban snapshot. */
+    // Mirrors the audit client's per-value budget for the deleted-zone ban snapshot.
     private static final int MAX_BANISHED_SNAPSHOT_CHARS = 1_024;
 
-    /** Result of a staff banish request. */
+    /** Result of a banish request. */
     public enum BanishResult { BANISHED, ALREADY_BANISHED, PERSIST_FAILED }
 
     private final MysterriaZones plugin;
@@ -85,7 +84,7 @@ public class ZoneManager {
         return saveZone(zone, null, null, null);
     }
 
-    /** Persists a zone and emits an optional event only after the write succeeds. */
+    // The audit row is emitted only after the write succeeds.
     public boolean saveZone(Zone zone, UUID actorId, String operation, Map<String, ?> metadata) {
         File zoneFile = new File(zonesFolder, zone.getName() + ".yml");
         FileConfiguration zoneConfig = new YamlConfiguration();
@@ -187,7 +186,6 @@ public class ZoneManager {
         return true;
     }
 
-    /** Selected corner positions: {@code world}/{@code x}/{@code y}/{@code z} for pos1, {@code pos2_*} for pos2. */
     private static Map<String, Object> selectedPositions(Location point1, Location point2) {
         Map<String, Object> positions = new LinkedHashMap<>();
         putPosition(positions, "", point1);
@@ -205,7 +203,6 @@ public class ZoneManager {
         target.put(prefix + "z", location.getZ());
     }
 
-    /** Captures the ban list of a zone about to be removed, cut at whole-UUID boundaries. */
     private Map<String, Object> banishedSnapshot(Zone zone) {
         List<String> banished = zone.getBanishedPlayers().stream().map(UUID::toString).sorted().toList();
         StringBuilder joined = new StringBuilder();
@@ -270,7 +267,6 @@ public class ZoneManager {
         return updateZone(zone, actorId, operation, AuditPrivacy.STAFF_RESTRICTED, metadata);
     }
 
-    /** Persists and registers a zone edit, then emits {@code operation} with the given privacy class. */
     public boolean updateZone(Zone zone, UUID actorId, String operation, AuditPrivacy privacy,
                               Map<String, ?> metadata) {
         boolean persisted = saveZone(zone, null, null, null);
@@ -348,7 +344,6 @@ public class ZoneManager {
         return true;
     }
 
-    /** Emits {@code operation} as {@code FAILED} after the YAML write or delete it depended on failed. */
     private void emitPersistFailed(String operation, AuditPrivacy privacy, UUID actorId, UUID targetId,
                                    Zone zone, Map<String, ?> metadata) {
         Map<String, Object> failure = new LinkedHashMap<>();
