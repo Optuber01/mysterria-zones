@@ -4,6 +4,7 @@ import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.title.Title;
+import dev.ua.ikeepcalm.mysterria.audit.client.api.AuditOutcome;
 import net.mysterria.zones.MysterriaZones;
 import net.mysterria.zones.model.Zone;
 import org.bukkit.Location;
@@ -12,13 +13,18 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
 public class ZoneTrackingService {
+    // One ejection row per player and zone in this window; the tracking task runs every second.
+    private static final long EJECT_AUDIT_WINDOW_MILLIS = 60_000L;
+
     private final MysterriaZones plugin;
     private final Map<UUID, Zone> playerCurrentZones;
     private final Map<UUID, Location> lastSafeLocations;
+    private final Map<UUID, EjectAudit> lastEjectAudits = new HashMap<>();
     private BukkitRunnable trackingTask;
 
     public ZoneTrackingService(MysterriaZones plugin) {
@@ -50,6 +56,7 @@ public class ZoneTrackingService {
         }
         playerCurrentZones.clear();
         lastSafeLocations.clear();
+        lastEjectAudits.clear();
     }
 
     private void checkPlayerZoneChange(Player player) {
@@ -58,7 +65,7 @@ public class ZoneTrackingService {
 
         // Check if player is trying to enter a zone they're banished from
         if (currentZone != null && currentZone.isBanished(player.getUniqueId())) {
-            handleBanishAttempt(player, currentZone);
+            handleBanishAttempt(player, currentZone, "tracking");
             return;
         }
 
@@ -122,6 +129,7 @@ public class ZoneTrackingService {
     public void removePlayer(Player player) {
         playerCurrentZones.remove(player.getUniqueId());
         lastSafeLocations.remove(player.getUniqueId());
+        lastEjectAudits.remove(player.getUniqueId());
     }
 
     public Zone getCurrentZone(Player player) {
@@ -142,13 +150,14 @@ public class ZoneTrackingService {
         return true;
     }
 
-    private void handleBanishAttempt(Player player, Zone zone) {
+    private void handleBanishAttempt(Player player, Zone zone, String trigger) {
         Location safeLocation = lastSafeLocations.get(player.getUniqueId());
+        Location destination = safeLocation != null ? safeLocation : player.getWorld().getSpawnLocation();
+        Location from = claimEjectionAudit(player, zone, trigger) ? player.getLocation() : null;
 
-        if (safeLocation != null) {
-            player.teleport(safeLocation);
-        } else {
-            player.teleport(player.getWorld().getSpawnLocation());
+        player.teleport(destination);
+        if (from != null) {
+            auditEjection(player, zone, trigger, from, destination);
         }
 
         Component warning = Component.text("You are banished from ", NamedTextColor.RED)
@@ -169,6 +178,42 @@ public class ZoneTrackingService {
             return;
         }
 
-        handleBanishAttempt(player, zone);
+        handleBanishAttempt(player, zone, "banish_command");
+    }
+
+    private boolean claimEjectionAudit(Player player, Zone zone, String trigger) {
+        UUID playerId = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        EjectAudit previous = lastEjectAudits.get(playerId);
+        if ("tracking".equals(trigger) && previous != null && previous.zoneName().equals(zone.getName())
+                && now - previous.millis() < EJECT_AUDIT_WINDOW_MILLIS) {
+            return false;
+        }
+        lastEjectAudits.put(playerId, new EjectAudit(zone.getName(), now));
+        return true;
+    }
+
+    // The emit call is thread-safe and queues off-thread.
+    private void auditEjection(Player player, Zone zone, String trigger, Location from, Location destination) {
+        UUID playerId = player.getUniqueId();
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("trigger", trigger);
+        if (from.getWorld() != null) {
+            metadata.put("world", from.getWorld().getName());
+        }
+        metadata.put("x", from.getX());
+        metadata.put("y", from.getY());
+        metadata.put("z", from.getZ());
+        if (destination.getWorld() != null) {
+            metadata.put("to_world", destination.getWorld().getName());
+        }
+        metadata.put("to_x", destination.getX());
+        metadata.put("to_y", destination.getY());
+        metadata.put("to_z", destination.getZ());
+        plugin.getAuditEmitter().emit("zone.banish_ejected", AuditOutcome.OBSERVED, playerId, playerId,
+                zone, metadata);
+    }
+
+    private record EjectAudit(String zoneName, long millis) {
     }
 }

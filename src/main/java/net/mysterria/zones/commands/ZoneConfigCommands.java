@@ -1,5 +1,6 @@
 package net.mysterria.zones.commands;
 
+import dev.ua.ikeepcalm.mysterria.audit.client.api.AuditPrivacy;
 import dev.rollczi.litecommands.annotations.argument.Arg;
 import dev.rollczi.litecommands.annotations.command.Command;
 import dev.rollczi.litecommands.annotations.context.Context;
@@ -12,9 +13,15 @@ import net.mysterria.zones.MysterriaZones;
 import net.mysterria.zones.model.Zone;
 import org.bukkit.entity.Player;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 @Command(name = "zone")
 @Permission("myzones.zone")
 public class ZoneConfigCommands {
+
+    private static final String ZONE_UPDATED = "zone.updated";
+    private static final String CONFIG_UPDATED = "zone.config.updated";
 
     private final MysterriaZones plugin;
 
@@ -32,8 +39,10 @@ public class ZoneConfigCommands {
         }
 
         String previous = zone.getEnterMessage();
+        Map<String, Object> metadata = auditMetadata("enter_message", previous, message);
         zone.setEnterMessage(message);
-        if (plugin.getZoneManager().persistZoneUpdate(zone)) {
+        if (plugin.getZoneManager().updateZone(zone, player.getUniqueId(), ZONE_UPDATED,
+                AuditPrivacy.GAMEPLAY_INPUT, metadata)) {
             player.sendMessage(Component.text("Enter message updated for zone '" + zoneName + "'!", NamedTextColor.GREEN));
         } else {
             zone.setEnterMessage(previous);
@@ -51,8 +60,10 @@ public class ZoneConfigCommands {
         }
 
         String previous = zone.getExitMessage();
+        Map<String, Object> metadata = auditMetadata("exit_message", previous, message);
         zone.setExitMessage(message);
-        if (plugin.getZoneManager().persistZoneUpdate(zone)) {
+        if (plugin.getZoneManager().updateZone(zone, player.getUniqueId(), ZONE_UPDATED,
+                AuditPrivacy.GAMEPLAY_INPUT, metadata)) {
             player.sendMessage(Component.text("Exit message updated for zone '" + zoneName + "'!", NamedTextColor.GREEN));
         } else {
             zone.setExitMessage(previous);
@@ -70,8 +81,10 @@ public class ZoneConfigCommands {
         }
 
         String previous = zone.getDisplayName();
+        Map<String, Object> metadata = auditMetadata("display_name", previous, displayName);
         zone.setDisplayName(displayName);
-        if (plugin.getZoneManager().persistZoneUpdate(zone)) {
+        if (plugin.getZoneManager().updateZone(zone, player.getUniqueId(), ZONE_UPDATED,
+                metadata)) {
             player.sendMessage(Component.text("Display name updated to '" + displayName + "' for zone '" + zoneName + "'!", NamedTextColor.GREEN));
         } else {
             zone.setDisplayName(previous);
@@ -89,8 +102,10 @@ public class ZoneConfigCommands {
         }
 
         boolean previous = zone.isProtection();
+        Map<String, Object> metadata = auditMetadata("protection", previous, !previous);
         zone.setProtection(!previous);
-        if (plugin.getZoneManager().persistZoneUpdate(zone)) {
+        if (plugin.getZoneManager().updateZone(zone, player.getUniqueId(), CONFIG_UPDATED,
+                metadata)) {
             String status = zone.isProtection() ? "enabled" : "disabled";
             player.sendMessage(Component.text("Protection " + status + " for zone '" + zoneName + "'!", NamedTextColor.GREEN));
         } else {
@@ -109,12 +124,22 @@ public class ZoneConfigCommands {
         }
 
         int previous = zone.getPriority();
+        Map<String, Object> metadata = auditMetadata("priority", previous, priority);
         zone.setPriority(priority);
-        if (plugin.getZoneManager().persistZoneUpdate(zone)) {
+        if (plugin.getZoneManager().updateZone(zone, player.getUniqueId(), CONFIG_UPDATED,
+                metadata)) {
             player.sendMessage(Component.text("Priority set to " + priority + " for zone '" + zoneName + "'!", NamedTextColor.GREEN));
         } else {
             zone.setPriority(previous);
             player.sendMessage(Component.text("Could not persist priority for zone '" + zoneName + "'.", NamedTextColor.RED));
         }
+    }
+
+    private Map<String, Object> auditMetadata(String field, Object previous, Object value) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("field", field);
+        if (previous != null) metadata.put("previous", previous);
+        if (value != null) metadata.put("value", value);
+        return metadata;
     }
 }

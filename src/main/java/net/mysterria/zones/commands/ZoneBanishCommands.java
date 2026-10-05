@@ -37,7 +37,7 @@ public class ZoneBanishCommands {
         }
 
         ZoneManager.BanishResult result = plugin.getZoneManager()
-                .banishAndPersist(zone, target.getUniqueId());
+                .banishPlayer(zone, target.getUniqueId(), player.getUniqueId());
         if (result == ZoneManager.BanishResult.ALREADY_BANISHED) {
             player.sendMessage(Component.text(target.getName() + " is already banished from zone '" + zoneName + "'!", NamedTextColor.YELLOW));
             return;
@@ -90,7 +90,7 @@ public class ZoneBanishCommands {
             return;
         }
 
-        if (!plugin.getZoneManager().unbanishAndPersist(zone, target.getUniqueId())) {
+        if (!plugin.getZoneManager().unbanishPlayer(zone, target.getUniqueId(), player.getUniqueId())) {
             player.sendMessage(Component.text("Could not persist unbanishment for zone '" + zoneName + "'.", NamedTextColor.RED));
             return;
         }

@@ -8,6 +8,8 @@ import net.mysterria.zones.commands.ZoneBanishCommands;
 import net.mysterria.zones.commands.ZoneCommands;
 import net.mysterria.zones.commands.ZoneConfigCommands;
 import net.mysterria.zones.commands.ZoneUtilityCommands;
+import net.mysterria.zones.audit.ZoneAuditEmitter;
+import net.mysterria.zones.audit.ZoneBypassAuditor;
 import net.mysterria.zones.listeners.CoiAbilityZoneListener;
 import net.mysterria.zones.listeners.SecureZoneListener;
 import net.mysterria.zones.manager.ZoneManager;
@@ -32,6 +34,7 @@ public class MysterriaZones extends JavaPlugin implements Listener {
 
     private ZoneManager zoneManager;
     private ZoneTrackingService zoneTrackingService;
+    private ZoneAuditEmitter auditEmitter;
     private LiteCommands<CommandSender> liteCommands;
 
     @Nullable
@@ -45,12 +48,14 @@ public class MysterriaZones extends JavaPlugin implements Listener {
         instance = this;
         getLogger().info("myzones plugin enabled!");
 
+        auditEmitter = new ZoneAuditEmitter(this);
         zoneManager = new ZoneManager(this);
         zoneTrackingService = new ZoneTrackingService(this);
 
-        getServer().getPluginManager().registerEvents(new SecureZoneListener(), this);
+        ZoneBypassAuditor bypassAuditor = new ZoneBypassAuditor(auditEmitter, zoneTrackingService);
+        getServer().getPluginManager().registerEvents(new SecureZoneListener(bypassAuditor), this);
         if (getServer().getPluginManager().getPlugin("CircleOfImagination") != null) {
-            getServer().getPluginManager().registerEvents(new CoiAbilityZoneListener(), this);
+            getServer().getPluginManager().registerEvents(new CoiAbilityZoneListener(bypassAuditor), this);
         } else {
             getLogger().warning("CircleOfImagination not found; ability protection in zones is inactive.");
         }
@@ -65,6 +70,10 @@ public class MysterriaZones extends JavaPlugin implements Listener {
     @Override
     public void onDisable() {
         getLogger().info("myzones plugin disabled!");
+
+        if (auditEmitter != null) {
+            auditEmitter.close();
+        }
 
         if (liteCommands != null) {
             liteCommands.unregister();

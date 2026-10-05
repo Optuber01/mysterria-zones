@@ -2,6 +2,7 @@ package net.mysterria.zones.listeners;
 
 import dev.ua.ikeepcalm.coi.api.event.AbilityUsageEvent;
 import net.mysterria.zones.MysterriaZones;
+import net.mysterria.zones.audit.ZoneBypassAuditor;
 import net.mysterria.zones.model.Zone;
 import org.bukkit.Location;
 import org.bukkit.event.EventHandler;
@@ -14,11 +15,15 @@ import org.bukkit.event.Listener;
  */
 public class CoiAbilityZoneListener implements Listener {
 
-    private final String bypassPermission = "myzones.bypass";
+    private final ZoneBypassAuditor bypassAuditor;
+
+    public CoiAbilityZoneListener(ZoneBypassAuditor bypassAuditor) {
+        this.bypassAuditor = bypassAuditor;
+    }
 
     @EventHandler
     public void onAbilityUsage(AbilityUsageEvent event) {
-        if (event.getPlayer().hasPermission(bypassPermission)) {
+        if (bypassAuditor.bypasses(event.getPlayer(), "ability_use")) {
             return;
         }
 
